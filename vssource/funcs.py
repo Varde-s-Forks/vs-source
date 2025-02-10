@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from functools import partial
-from typing import Any, Literal, Generator, Protocol, Sequence, overload
+from typing import Any, Literal, Sequence, overload
 
 from vstools import (
     ChromaLocationT, ColorRangeT, CustomRuntimeError, FieldBasedT, FileType, FileTypeMismatchError, IndexingType,
-    MatrixT, ParsedFile, PrimariesT, SPath, SPathLike, TransferT, check_perms, copy_signature, initialize_clip,
+    MatrixT, ParsedFile, PrimariesT, SPath, SPathLike, TransferT, check_perms, initialize_clip,
     match_clip, to_arr, vs
 )
 
@@ -17,12 +17,7 @@ __all__ = [
 ]
 
 
-def parse_video_filepath(
-    filepath: SPathLike | Sequence[SPathLike] | Generator[SPath, None, None]
-) -> tuple[SPath, ParsedFile]:
-    if isinstance(filepath, Generator):
-        filepath = list(filepath)
-
+def parse_video_filepath(filepath: SPathLike | Sequence[SPathLike]) -> tuple[SPath, ParsedFile]:
     try:
         filepath = next(iter(Indexer.normalize_filenames(filepath)))
     except StopIteration:
@@ -46,71 +41,10 @@ def parse_video_filepath(
     return filepath, file
 
 
-class source_func(Protocol):
-    @overload
-    def __call__(
-        self,
-        filepath: SPathLike | Sequence[SPathLike],
-        bits: int | None = None, *,
-        matrix: MatrixT | None = None,
-        transfer: TransferT | None = None,
-        primaries: PrimariesT | None = None,
-        chroma_location: ChromaLocationT | None = None,
-        color_range: ColorRangeT | None = None,
-        field_based: FieldBasedT | None = None,
-        ref: vs.VideoNode | None = None,
-        film_thr: float = 99.0,
-        name: str | Literal[False] = False,
-        **kwargs: Any
-    ) -> vs.VideoNode:
-        ...
-
-    @overload
-    def __call__(
-        self,
-        bits: int | None = None, *,
-        matrix: MatrixT | None = None,
-        transfer: TransferT | None = None,
-        primaries: PrimariesT | None = None,
-        chroma_location: ChromaLocationT | None = None,
-        color_range: ColorRangeT | None = None,
-        field_based: FieldBasedT | None = None,
-        ref: vs.VideoNode | None = None,
-        film_thr: float = 99.0,
-        name: str | Literal[False] = False,
-        **kwargs: Any
-    ) -> source_func:
-        ...
-
-    @overload
-    def __call__(
-        self,
-        filepath: None,
-        bits: int | None = None, *,
-        matrix: MatrixT | None = None,
-        transfer: TransferT | None = None,
-        primaries: PrimariesT | None = None,
-        chroma_location: ChromaLocationT | None = None,
-        color_range: ColorRangeT | None = None,
-        field_based: FieldBasedT | None = None,
-        ref: vs.VideoNode | None = None,
-        film_thr: float = 99.0,
-        name: str | Literal[False] = False,
-        **kwargs: Any
-    ) -> source_func:
-        ...
-
-    def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        ...
-
-
-_source_func: source_func = ...  # type: ignore
-
-
-@copy_signature(_source_func)
+@overload
 def source(
-    filepath: SPathLike | Sequence[SPathLike] | Generator[SPathLike, None, None] | None = None,
-    bits: int | None = None, *,
+    filepath: SPathLike | Sequence[SPathLike],
+    bits: int | None = None,
     matrix: MatrixT | None = None,
     transfer: TransferT | None = None,
     primaries: PrimariesT | None = None,
@@ -121,9 +55,44 @@ def source(
     film_thr: float = 99.0,
     name: str | Literal[False] = False,
     **kwargs: Any
-) -> vs.VideoNode | source_func:
+) -> vs.VideoNode:
+    ...
+
+
+@overload
+def source(
+    *,
+    bits: int | None = None,
+    matrix: MatrixT | None = None,
+    transfer: TransferT | None = None,
+    primaries: PrimariesT | None = None,
+    chroma_location: ChromaLocationT | None = None,
+    color_range: ColorRangeT | None = None,
+    field_based: FieldBasedT | None = None,
+    ref: vs.VideoNode | None = None,
+    film_thr: float = 99.0,
+    name: str | Literal[False] = False,
+    **kwargs: Any
+) -> partial[vs.VideoNode]:
+    ...
+
+
+def source(
+    filepath: SPathLike | Sequence[SPathLike] | None = None,
+    bits: int | None = None,
+    matrix: MatrixT | None = None,
+    transfer: TransferT | None = None,
+    primaries: PrimariesT | None = None,
+    chroma_location: ChromaLocationT | None = None,
+    color_range: ColorRangeT | None = None,
+    field_based: FieldBasedT | None = None,
+    ref: vs.VideoNode | None = None,
+    film_thr: float = 99.0,
+    name: str | Literal[False] = False,
+    **kwargs: Any
+) -> vs.VideoNode | partial[vs.VideoNode]:
     if filepath is None:
-        return partial(  # type: ignore
+        return partial(
             source, bits=bits if bits is not None else filepath, matrix=matrix, transfer=transfer, primaries=primaries,
             chroma_location=chroma_location, color_range=color_range, field_based=field_based, ref=ref,
             film_thr=film_thr, name=name, **kwargs
